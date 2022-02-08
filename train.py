@@ -233,8 +233,8 @@ optimizer = optim.Adam(transformer.parameters(),lr=1e-6, betas=(0.9, 0.95), eps=
 
 
 
-def train_epoch(model, optimizer):
-    model.train()
+def train_epoch(optimizer):
+    transformer.train()
     losses = 0
     running_loss = 0.0
     for i, (train_index, train_in, train_in_len, train_out) in enumerate(trainloader):
@@ -248,7 +248,7 @@ def train_epoch(model, optimizer):
         # src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(tgt_input, tgt_input)
         # logits = model(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
 
-        logits = model(src, tgt_input, None, None, None, None, None)
+        logits = transformer(src, tgt_input, None, None, None, None, None)
 
         optimizer.zero_grad()
 
@@ -333,7 +333,7 @@ def evaluate():
     
     
     if cer < best_cer[0]:
-        test(model)
+        test()
         test_cer, test_wacc = count_cer('test',epoch,"pred_logs/"+EXPERIMENT)
         print("Test CER: ",test_cer)
         print("Test WACC: ",test_wacc)
@@ -363,9 +363,9 @@ if continue_train:
 
 for epoch in range(st_epoch, NUM_EPOCHS+1):
     start_time = timer()
-    train_loss = train_epoch(transformer, optimizer)
+    train_loss = train_epoch(optimizer)
     end_time = timer()
-    val_loss = evaluate(transformer)
+    val_loss = evaluate()
     print((f"Epoch: {epoch}, Train loss: {train_loss:.3f}, Val loss: {val_loss:.3f}, "f"Epoch time = {(end_time - start_time):.3f}s"))
     f=41
 a=41
