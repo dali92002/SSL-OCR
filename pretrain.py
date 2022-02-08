@@ -25,15 +25,10 @@ image_size =  C.image_size
 MASKINGRATIO = C.MASKINGRATIO
 VIS_RESULTS = C.VIS_RESULTS
 
+ENCODERLAYERS = C.NUM_ENCODER_LAYERS
+ENCODERHEADS = C.NHEAD
+ENCODERDIM = C.EMB_SIZE
 
-if MODELSIZE == 'base':
-    ENCODERLAYERS = 6
-    ENCODERHEADS = 8
-    ENCODERDIM = 768
-if MODELSIZE == 'small':
-    ENCODERLAYERS = 3
-    ENCODERHEADS = 4
-    ENCODERDIM = 512
 
 EXPERIMENT = DATATYPE+'_'+MODELSIZE+ '_' + str(image_size[0])+'_'+str(image_size[1])+'_'+str(patch_size)
 
@@ -90,7 +85,7 @@ def imshow(img):
 
 
 
-def imvisualize(imgt,impred,ind,epoch='0',iter='0'):
+def imvisualize(immask,imgt,impred,ind,epoch='0',iter='0'):
     
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
@@ -102,28 +97,32 @@ def imvisualize(imgt,impred,ind,epoch='0',iter='0'):
     # impred = impred / 2 + 0.5     # unnormalize
     
 
-
+    immask = immask.numpy()
     imgt = imgt.numpy()
     impred = impred.numpy()
+    immask = np.transpose(immask, (1, 2, 0))
     imgt = np.transpose(imgt, (1, 2, 0))
     impred = np.transpose(impred, (1, 2, 0))
     
+    
     for ch in range(3):
+        immask[:,:,ch] = (immask[:,:,ch] *std[ch]) + mean[ch]
         imgt[:,:,ch] = (imgt[:,:,ch] *std[ch]) + mean[ch]
         impred[:,:,ch] = (impred[:,:,ch] *std[ch]) + mean[ch]
 
     impred[np.where(impred>1)] = 1
     impred[np.where(impred<0)] = 0
 
-    if not os.path.exists('vis/epoch'+epoch):
-        os.makedirs('vis/epoch'+epoch)
-    if not os.path.exists('vis/epoch'+epoch+'/'+'iter'+iter):
-        os.makedirs('vis/epoch'+epoch+'/'+'iter'+iter)
+    if not os.path.exists('vis_'+EXPERIMENT+'/epoch'+epoch):
+        os.makedirs('vis_'+EXPERIMENT+'/epoch'+epoch)
+    if not os.path.exists('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter):
+        os.makedirs('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter)
     
     
 
-    plt.imsave('vis/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'gt.jpg',imgt)
-    plt.imsave('vis/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'pred.jpg',impred)
+    plt.imsave('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'masked.jpg',immask)
+    plt.imsave('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'gt.jpg',imgt)
+    plt.imsave('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'pred.jpg',impred)
     
 
 
@@ -173,16 +172,21 @@ def visualize(epoch,iter):
         labels = valid_out.to(device)
 
         with torch.no_grad():
-            loss,patches, batch_range, masked_indices, pred_pixel_values, masked_pixels = mae(inputs)
+            loss,patches, batch_range, masked_indices, pred_pixel_values, _ = mae(inputs)
             
-            rec_patches = patches
+            rec_patches = patches.clone().detach()
+            
             rec_patches[batch_range, masked_indices] = pred_pixel_values
+            
+            maskes = torch.zeros(pred_pixel_values.size())+0.5
+            maskes = maskes.to(device)
+            masked_patches = patches.clone().detach()
+            masked_patches[batch_range, masked_indices]= maskes
 
             rec_images = rearrange(rec_patches, 'b (h w) (p1 p2 c) -> b c (h p1) (w p2)', p1 = patch_size, p2 = patch_size,  h=image_size[0]//patch_size)
-            
-            for i in range (0,batch_size):
-                imvisualize(inputs[i].cpu(),rec_images[i].cpu(),i,epoch,iter)
-        break
+            masked_images = rearrange(masked_patches, 'b (h w) (p1 p2 c) -> b c (h p1) (w p2)', p1 = patch_size, p2 = patch_size,  h=image_size[0]//patch_size)
+            for j in range (0,batch_size):
+                imvisualize(masked_images[j].cpu(), inputs[j].cpu(),rec_images[j].cpu(),valid_index[j],epoch,iter)
 
 
 
