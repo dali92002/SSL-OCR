@@ -274,8 +274,8 @@ def train_epoch(model, optimizer):
 
 
 
-def test(model):
-    model.eval()
+def test():
+    transformer.eval()
     losses = 0
 
     for i, (test_index, test_in, test_in_len, test_out) in enumerate(testloader):
@@ -289,7 +289,7 @@ def test(model):
 
         # src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(torch.rand(int(image_size[0]/patch_size*image_size[1]/patch_size),BATCH_SIZE), tgt_input)
         # logits = model(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
-        logits = model(src, tgt_input, None, None, None, None, None)
+        logits = transformer(src, tgt_input, None, None, None, None, None)
 
         tgt_out = tgt[1:, :]
         loss = loss_fn(logits.reshape(-1, logits.shape[-1]), tgt_out.reshape(-1))
@@ -299,8 +299,8 @@ def test(model):
 
 
 
-def evaluate(model):
-    model.eval()
+def evaluate():
+    transformer.eval()
     losses = 0
 
     for i, (valid_index, valid_in, valid_in_len, valid_out) in enumerate(validloader):
@@ -314,7 +314,7 @@ def evaluate(model):
 
         # src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(torch.rand(int(image_size[0]/patch_size*image_size[1]/patch_size),BATCH_SIZE), tgt_input)
         # logits = model(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
-        logits = model(src, tgt_input, None, None, None, None, None)
+        logits = transformer(src, tgt_input, None, None, None, None, None)
 
         tgt_out = tgt[1:, :]
         loss = loss_fn(logits.reshape(-1, logits.shape[-1]), tgt_out.reshape(-1))
