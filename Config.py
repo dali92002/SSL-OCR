@@ -1,5 +1,5 @@
-baseDir_word = '/home/mohamed/vit/mae/data/IAM/'
-baseDir_line = '/home/mohamed/vit/mae/data/IAM/'
+baseDir_word = '/home/mohamed/vit/SSL-OCR/data/IAM/'
+baseDir_line = '/home/mohamed/vit/SSL-OCR/data/IAM/'
 
 
 #OUTPUT_MAX_LEN = 95  ## iam lines 
@@ -9,18 +9,17 @@ OUTPUT_MAX_LEN = 38  ## iam words
 #baseDir_line = '/data2fast/users/msouibgui/maedata/syntdata/'
 #OUTPUT_MAX_LEN  = 180 ##synthetic
 
-TRAINTYPE = 'pretrain'
+TRAINTYPE = 'IAM-scratch'
 SETTING = 'base'
 DATATYPE = 'word'
 continue_train = False
-batch_size = 6
+batch_size = 12
 
 
 patch_size = 8
 image_size =  (128,512)
 MASKINGRATIO = 0.75
 VIS_RESULTS = True
-
 
 if SETTING == 'base':
     NUM_ENCODER_LAYERS = 6
@@ -35,10 +34,3 @@ if SETTING == 'small':
     EMB_SIZE = 512
     NHEAD = 4
     FFN_HID_DIM = 512
-    
-if SETTING == 'large':
-    NUM_ENCODER_LAYERS = 12
-    NUM_DECODER_LAYERS = 12
-    EMB_SIZE = 1024
-    NHEAD = 16
-    FFN_HID_DIM = 1024  

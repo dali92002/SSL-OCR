@@ -267,6 +267,7 @@ def train_epoch(optimizer):
         if i % show_every == show_every-1:    # print every 500 mini-batches
             print('[epoch: %d, iter: %5d] Train. loss: %.3f' % (epoch, i + 1, running_loss / show_every))
             running_loss = 0.0
+        break
        
 
     return losses / len(trainloader)
@@ -289,7 +290,8 @@ def test():
 
         # src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(torch.rand(int(image_size[0]/patch_size*image_size[1]/patch_size),BATCH_SIZE), tgt_input)
         # logits = model(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
-        logits = transformer(src, tgt_input, None, None, None, None, None)
+        with torch.no_grad():
+            logits = transformer(src, tgt_input, None, None, None, None, None)
 
         tgt_out = tgt[1:, :]
         loss = loss_fn(logits.reshape(-1, logits.shape[-1]), tgt_out.reshape(-1))
@@ -314,7 +316,8 @@ def evaluate():
 
         # src_mask, tgt_mask, src_padding_mask, tgt_padding_mask = create_mask(torch.rand(int(image_size[0]/patch_size*image_size[1]/patch_size),BATCH_SIZE), tgt_input)
         # logits = model(src, tgt_input, src_mask, tgt_mask,src_padding_mask, tgt_padding_mask, src_padding_mask)
-        logits = transformer(src, tgt_input, None, None, None, None, None)
+        with torch.no_grad():
+            logits = transformer(src, tgt_input, None, None, None, None, None)
 
         tgt_out = tgt[1:, :]
         loss = loss_fn(logits.reshape(-1, logits.shape[-1]), tgt_out.reshape(-1))
@@ -340,6 +343,9 @@ def evaluate():
 
         best_cer[0] = cer
         best_cer[1] = epoch
+
+        if not os.path.exists('./weights/'):
+            os.makedirs('./weights/')
         torch.save(transformer.state_dict(), './weights/best-seq2seq_'+EXPERIMENT+'.pt')
             
 
