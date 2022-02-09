@@ -13,7 +13,7 @@ TRAINTYPE = 'IAM-scratch'
 SETTING = 'base'
 DATATYPE = 'word'
 continue_train = False
-batch_size = 12
+batch_size = 6
 
 
 patch_size = 8

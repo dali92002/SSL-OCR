@@ -218,6 +218,8 @@ def valid_model(best_loss):
     losses = losses / len(validloader)
     if losses < best_loss:
         best_loss = losses
+        if not os.path.exists('./weights/'):
+            os.makedirs('./weights/')
         torch.save(v.state_dict(), './weights/best-encoder-'+EXPERIMENT+'.pt')
     
     return best_loss, losses

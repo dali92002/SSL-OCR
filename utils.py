@@ -7,7 +7,7 @@ def count_cer(set, epoch,path):
 
     names=[]
     texts=[]
-    with open (C.baseDir_line+"RWTH.iam_"+C.DATATYPE+"_gt_final."+set+".thresh") as f:
+    with open (C.baseDir_line+set+"_words.txt") as f:
         lines = f.readlines()
     for line in lines:
         line = line.split('\n')[0]
