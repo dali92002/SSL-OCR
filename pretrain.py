@@ -195,18 +195,17 @@ best_valid_loss = 99999999
 
 
 def valid_model(best_loss):
+	
     losses = 0
+    mae.eval()
     for i, (valid_index, valid_in, valid_in_len, valid_out) in enumerate(validloader):
         
         inputs = valid_in.to(device)
         labels = valid_out.to(device)
 
-        optimizer.zero_grad()
-
         loss,_, _, _, _ ,_= mae(inputs)
 
-        loss.backward()
-        optimizer.step()
+        
 
         
 
@@ -255,6 +254,7 @@ for epoch in range(101):
             running_loss = 0.0
         
     best_valid_loss,valid_loss = valid_model(best_valid_loss)
+    mae.train()
     print('Valid loss: ',valid_loss)
     print('Best valid loss: ',best_valid_loss)
 
