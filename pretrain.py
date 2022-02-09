@@ -10,6 +10,7 @@ from einops import rearrange
 import os
 import loadData2_vgg as loadData
 import Config as C
+import cv2
 
 device = torch.device('cuda:0')
 load_data_func = loadData.loadData
@@ -120,9 +121,9 @@ def imvisualize(immask,imgt,impred,ind,epoch='0',iter='0'):
     
     
 
-    plt.imsave('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'masked.jpg',immask)
-    plt.imsave('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'gt.jpg',imgt)
-    plt.imsave('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'pred.jpg',impred)
+    cv2.imwrite('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'masked.jpg',immask*255)
+    cv2.imwrite('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'gt.jpg',imgt*255)
+    cv2.imwrite('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'pred.jpg',impred*255)
     
 
 
@@ -164,7 +165,7 @@ optimizer = optim.AdamW(mae.parameters(),lr=1.5e-4, betas=(0.9, 0.95), eps=1e-08
 
 
 def visualize(epoch,iter):
-    a=45
+    VIS_NUMBER=50
     # for i, data in enumerate(testloader, 0):
     for i, (valid_index, valid_in, valid_in_len, valid_out) in enumerate(validloader):
         # inputs, labels = data
@@ -185,8 +186,12 @@ def visualize(epoch,iter):
 
             rec_images = rearrange(rec_patches, 'b (h w) (p1 p2 c) -> b c (h p1) (w p2)', p1 = patch_size, p2 = patch_size,  h=image_size[0]//patch_size)
             masked_images = rearrange(masked_patches, 'b (h w) (p1 p2 c) -> b c (h p1) (w p2)', p1 = patch_size, p2 = patch_size,  h=image_size[0]//patch_size)
-            for j in range (0,batch_size):
+            for j in range (0,len(valid_index)):
                 imvisualize(masked_images[j].cpu(), inputs[j].cpu(),rec_images[j].cpu(),valid_index[j],epoch,iter)
+                VIS_NUMBER -= 1
+        
+        if VIS_NUMBER <0:
+            break
 
 
 

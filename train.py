@@ -48,14 +48,9 @@ DATATYPE = C.DATATYPE
 
 EXPERIMENT = DATATYPE+ '_' +TRAINTYPE + '_' +MODELSIZE+ '_' + str(image_size[0])+'_'+str(image_size[1])+'_'+str(patch_size)
 
-def labelDictionary():
-    labels = [' ', '!', '"', '#', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
-    letter2index = {label: n for n, label in enumerate(labels)}
-    index2letter = {v: k for k, v in letter2index.items()}
-    return len(labels), letter2index, index2letter
 
 
-
+labelDictionary = loadData.labelDictionary
 
 
 
@@ -267,7 +262,7 @@ def train_epoch(optimizer):
         if i % show_every == show_every-1:    # print every 500 mini-batches
             print('[epoch: %d, iter: %5d] Train. loss: %.3f' % (epoch, i + 1, running_loss / show_every))
             running_loss = 0.0
-        break
+        
        
 
     return losses / len(trainloader)
@@ -355,7 +350,7 @@ def evaluate():
 st_epoch = 1
 NUM_EPOCHS = 600
 
-best_cer = [1,0]
+best_cer = [1000,0]
 
 continue_train = C.continue_train
 

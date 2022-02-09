@@ -20,7 +20,7 @@ OUTPUT_MAX_LEN  = Config.OUTPUT_MAX_LEN
 # valid data: 6445
 # test data: 13752
 
-RM_BACKGROUND = True
+RM_BACKGROUND = False
 FLIP = False # flip the image
 
 
@@ -34,7 +34,7 @@ IMG_HEIGHT = IMAGESIZE[0]
 #global_filename = []
 #global_length = []
 def labelDictionary():
-    labels = [' ', '!', '"', '#', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
+    labels = [' ', '!', '"', '#', '&', "'", '(', ')', '*', '+', ',', '-', '.', '/','[',']','@','0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '?', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '_', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
     letter2index = {label: n for n, label in enumerate(labels)}
     index2letter = {v: k for k, v in letter2index.items()}
     return len(labels), letter2index, index2letter
@@ -44,10 +44,11 @@ tokens = {'GO_TOKEN': 0, 'END_TOKEN': 1, 'PAD_TOKEN': 2}
 num_tokens = len(tokens.keys())
 
 class IAM_words(D.Dataset):
-    def __init__(self, file_label, augmentation=True):
+    def __init__(self, file_label,set_data, augmentation=True):
         self.file_label = file_label
         self.output_max_len = OUTPUT_MAX_LEN
         self.augmentation = augmentation
+        self.set_data = set_data
 
         self.transformer = marcalAugmentor.augmentor
 
@@ -67,12 +68,12 @@ class IAM_words(D.Dataset):
             thresh = int(file_name.split(',')[-1])
             # thresh = 128## int(thresh)
         if WORD_LEVEL:
-            subdir = 'words/'
+            subdir = self.set_data+'_words/'
         else:
-            subdir = 'lines/'
+            subdir = self.set_data+'_lines/'
         file_name = file_name.split(',')[0]
         url = baseDir + subdir + file_name + '.png'
-        img = cv2.imread(url, 0)
+        img = cv2.imread(url)
 
         
         
@@ -104,7 +105,7 @@ class IAM_words(D.Dataset):
         else:
             img = 255 - img
 
-        img_width = img.shape[-1]
+        img_width = img.shape[1]
 
         if flip: # because of using pack_padded_sequence, first flip, then pad it
             img = np.flip(img, 1)
@@ -114,16 +115,16 @@ class IAM_words(D.Dataset):
             #outImg = img[:, :IMG_WIDTH]
             img_width = IMG_WIDTH
         else:
-            outImg = np.zeros((IMG_HEIGHT, IMG_WIDTH), dtype='uint8')
-            outImg[:, :img_width] = img
+            outImg = np.zeros((IMG_HEIGHT, IMG_WIDTH,3), dtype='uint8')
+            outImg[:, :img_width,:] = img
         outImg = outImg/255. #float64
         outImg = outImg.astype('float32')
         if VGG_NORMAL:
             mean = [0.485, 0.456, 0.406]
             std = [0.229, 0.224, 0.225]
-            outImgFinal = np.zeros([3, *outImg.shape])
+            outImgFinal = np.zeros([3, *outImg.shape[:2]])
             for i in range(3):
-                outImgFinal[i] = (outImg - mean[i]) / std[i]
+                outImgFinal[i] = (outImg[:,:,i] - mean[i]) / std[i]
             return outImgFinal, img_width
 
         outImg = np.vstack([np.expand_dims(outImg, 0)] * 3) # GRAY->RGB
@@ -131,7 +132,13 @@ class IAM_words(D.Dataset):
 
     def label_padding(self, labels, num_tokens):
         new_label_len = []
-        ll = [letter2index[i] for i in labels]
+        ll = []
+        for i in labels:
+            try:
+                ll.append(letter2index[i])
+            except:
+                print("Missed letter --------------->  ", i)
+            ##ll = [letter2index[i] for i in labels]
         num = self.output_max_len - len(ll) - 2
         new_label_len.append(len(ll)+2)
         ll = np.array(ll) + num_tokens   ##### here adding the    3    ######
@@ -154,9 +161,9 @@ def loadData():
     else:
         subname = 'line'
     if True:#RM_BACKGROUND:
-        gt_tr = 'RWTH.iam_'+subname+'_gt_final.train.thresh'
-        gt_va = 'RWTH.iam_'+subname+'_gt_final.valid.thresh'
-        gt_te = 'RWTH.iam_'+subname+'_gt_final.test.thresh'
+        gt_tr = 'train_words.txt'
+        gt_va = 'valid_words.txt'
+        gt_te = 'test_words.txt'
     else:
         pass
         #gt_tr = 'iam_word_gt_final.train'
@@ -183,9 +190,9 @@ def loadData():
     #print('Loading testing data ', total_num_te)
 
     np.random.shuffle(file_label_tr)
-    data_train = IAM_words(file_label_tr, augmentation=True)
-    data_valid = IAM_words(file_label_va, augmentation=False)
-    data_test = IAM_words(file_label_te, augmentation=False)
+    data_train = IAM_words(file_label_tr, 'train',augmentation=True)
+    data_valid = IAM_words(file_label_va, 'valid', augmentation=False)
+    data_test = IAM_words(file_label_te, 'test', augmentation=False)
     return data_train, data_valid, data_test
 
 if __name__ == '__main__':

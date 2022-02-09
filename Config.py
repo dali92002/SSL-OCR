@@ -1,5 +1,5 @@
-baseDir_word = '/home/mohamed/vit/SSL-OCR/data/IAM/'
-baseDir_line = '/home/mohamed/vit/SSL-OCR/data/IAM/'
+baseDir_word = '/home/mohamed/vit/SSL-OCR/data/icdar13/'
+baseDir_line = '/home/mohamed/vit/SSL-OCR/data/icdar13/'
 
 
 #OUTPUT_MAX_LEN = 95  ## iam lines 
