@@ -1,79 +1,42 @@
+import sched
 import torch
 from vit_pytorch import ViT
-from models.mae import MAE
-import torchvision
+from models.diae import DIAE
 import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 import numpy as np
 import torch.optim as optim
 from einops import rearrange
 import os
-import loadData2_vgg as loadData
-import Config as C
+import loadData_pretrain as loadData
+from Config import Configs
 import cv2
 
+all_data_loader = loadData.all_data_loader
 device = torch.device('cuda:0')
 load_data_func = loadData.loadData
 transform = transforms.Compose([transforms.RandomResizedCrop(256),transforms.ToTensor(),transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
-MODELSIZE = C.SETTING
-DATATYPE = C.DATATYPE
+C = Configs().parse()
 batch_size = C.batch_size
+patch_size = C.vit_patch_size
+image_size =  (C.img_height,C.img_width)
+MASKINGRATIO = 0.60
+vis_results = C.vis_results
+baseDir = C.data_path
+weightDir = C.weights_path
+
+NUM_ENCODER_LAYERS = 6
+NUM_DECODER_LAYERS = 6
+EMB_SIZE = 768
+NHEAD = 8
+FFN_HID_DIM = 768
 
 
-patch_size = C.patch_size
-image_size =  C.image_size
-MASKINGRATIO = C.MASKINGRATIO
-VIS_RESULTS = C.VIS_RESULTS
-
-ENCODERLAYERS = C.NUM_ENCODER_LAYERS
-ENCODERHEADS = C.NHEAD
-ENCODERDIM = C.EMB_SIZE
+EXPERIMENT = "pretrain"+'_' + str(image_size[0])+'_'+str(image_size[1])+'_'+str(patch_size)
 
 
-EXPERIMENT = DATATYPE+'_'+MODELSIZE+ '_' + str(image_size[0])+'_'+str(image_size[1])+'_'+str(patch_size)
-
-def sort_batch(batch):
-    n_batch = len(batch)
-    train_index = []
-    train_in = []
-    train_in_len = []
-    train_out = []
-    for i in range(n_batch):
-        idx, img, img_width, label = batch[i]
-
-        train_index.append(idx)
-        train_in.append(img)
-        train_in_len.append(img_width)
-        train_out.append(label)
-    
-    # for t in (train_out):
-    #     print((t))
-    
-    train_index = np.array(train_index)
-    train_in = np.array(train_in, dtype='float32')
-    train_out = np.array(train_out, dtype='int64')
-    train_in_len = np.array(train_in_len, dtype='int64')
-
-    train_in = torch.from_numpy(train_in)
-    train_out = torch.from_numpy(train_out)
-    train_in_len = torch.from_numpy(train_in_len)
-
-    train_in_len, idx = train_in_len.sort(0, descending=True)
-    train_in = train_in[idx]
-    train_out = train_out[idx]
-    train_index = train_index[idx]
-    return train_index, train_in, train_in_len, train_out
-
-
-def all_data_loader():
-    data_train, data_valid, data_test = load_data_func()
-    train_loader = torch.utils.data.DataLoader(data_train, collate_fn=sort_batch, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=True)
-    valid_loader = torch.utils.data.DataLoader(data_valid, collate_fn=sort_batch, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
-    test_loader = torch.utils.data.DataLoader(data_test, collate_fn=sort_batch, batch_size=batch_size, shuffle=False, num_workers=2, pin_memory=True)
-    return train_loader, valid_loader, test_loader
-
-trainloader, validloader, testloader = all_data_loader()
+trainloader, validloader, _ = all_data_loader(batch_size)
 
 
 
@@ -91,13 +54,6 @@ def imvisualize(immask,imgt,impred,ind,epoch='0',iter='0'):
     mean = [0.485, 0.456, 0.406]
     std = [0.229, 0.224, 0.225]
     
-    
-    
-    
-    # imgt = imgt / 2 + 0.5     # unnormalize
-    # impred = impred / 2 + 0.5     # unnormalize
-    
-
     immask = immask.numpy()
     imgt = imgt.numpy()
     impred = impred.numpy()
@@ -121,16 +77,10 @@ def imvisualize(immask,imgt,impred,ind,epoch='0',iter='0'):
     
     
 
-    cv2.imwrite('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'masked.jpg',immask*255)
-    cv2.imwrite('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'gt.jpg',imgt*255)
-    cv2.imwrite('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'pred.jpg',impred*255)
+    cv2.imwrite('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'masked.jpg',(immask*255))
+    cv2.imwrite('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'gt.jpg',(imgt*255))
+    cv2.imwrite('vis_'+EXPERIMENT+'/epoch'+epoch+'/'+'iter'+iter+'/'+str(ind)+'pred.jpg',(impred*255))
     
-
-
-# dataiter = iter(trainloader)
-# images, labels = dataiter.next()
-
-
 
 
 
@@ -138,42 +88,44 @@ v = ViT(
     image_size = image_size,
     patch_size = patch_size,
     num_classes = 1000,
-    dim = ENCODERDIM,
-    depth = ENCODERLAYERS,
-    heads = ENCODERHEADS,
+    dim = EMB_SIZE,
+    depth = NUM_ENCODER_LAYERS,
+    heads = NHEAD,
     mlp_dim = 2048
 )
 
 
 
-mae = MAE(
+diae = DIAE(
     encoder = v,
     masking_ratio = MASKINGRATIO,   # the paper recommended 75% masked patches
     decoder_dim = 512,      # paper showed good results with just 512
-    decoder_depth = 6       # anywhere from 1 to 8
+    decoder_depth = 6 ,
+    image_size = image_size,
+    patch_size = patch_size,
+    dim = FFN_HID_DIM, 
 )
 
-# images = torch.randn(8, 3, 256, 256)
 
 
-mae = mae.to(device)
+diae = diae.to(device)
 
-# loss = mae(images)
-# loss.backward()
-
-optimizer = optim.AdamW(mae.parameters(),lr=1.5e-4, betas=(0.9, 0.95), eps=1e-08, weight_decay=0.05, amsgrad=False)
-
+optimizer = optim.AdamW(diae.parameters(),lr=1.5e-4, betas=(0.9, 0.95), eps=1e-08, weight_decay=0.05, amsgrad=False)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=len(trainloader))
 
 def visualize(epoch,iter):
-    VIS_NUMBER=50
+    diae.eval()
+    VIS_NUMBER=100
     # for i, data in enumerate(testloader, 0):
-    for i, (valid_index, valid_in, valid_in_len, valid_out) in enumerate(validloader):
+    for i, (valid_index, valid_in, valid_in_bg, valid_in_bl, valid_in_len, valid_out) in enumerate(validloader):
         # inputs, labels = data
         inputs = valid_in.to(device)
+        inputs_bg = valid_in_bg.to(device)
+        inputs_bl = valid_in_bl.to(device)
         labels = valid_out.to(device)
 
         with torch.no_grad():
-            loss,patches, batch_range, masked_indices, pred_pixel_values, _ = mae(inputs)
+            rec_loss,en_loss,deb_loss,patches, batch_range, masked_indices, pred_pixel_values, _ = diae(inputs, inputs_bg, inputs_bl)
             
             rec_patches = patches.clone().detach()
             
@@ -202,67 +154,100 @@ best_valid_loss = 99999999
 def valid_model(best_loss):
 	
     losses = 0
-    mae.eval()
-    for i, (valid_index, valid_in, valid_in_len, valid_out) in enumerate(validloader):
+    diae.eval()
+    for i, (valid_index, valid_in, valid_in_bg, valid_in_bl,valid_in_len, valid_out) in enumerate(validloader):
         
         inputs = valid_in.to(device)
-        labels = valid_out.to(device)
-
-        loss,_, _, _, _ ,_= mae(inputs)
-
+        inputs_bg = valid_in_bg.to(device)
+        inputs_bl = valid_in_bl.to(device)
         
-
-        
-
-        losses += loss.item()
+        with torch.no_grad():
+            loss_rec,loss_enh,loss_blur,_, _, _, _ ,_= diae(inputs, inputs_bg, inputs_bl)
+            loss = loss_rec + loss_enh + loss_blur
+            losses += loss.item()
+    
     losses = losses / len(validloader)
     if losses < best_loss:
         best_loss = losses
-        if not os.path.exists('./weights/'):
-            os.makedirs('./weights/')
-        torch.save(v.state_dict(), './weights/best-encoder-'+EXPERIMENT+'.pt')
-    
+        if not os.path.exists(weightDir+ 'weights/'):
+            os.makedirs(weightDir+ 'weights/')
+        torch.save(v.state_dict(), weightDir+ 'weights/best-encoder-'+EXPERIMENT+'.pt')
+        torch.save(diae.state_dict(), weightDir+ 'weights/best-diae-'+EXPERIMENT+'.pt')
     return best_loss, losses
     
 
 
 
 
-
-for epoch in range(101): 
+schd = False
+for epoch in range(100): 
 
     running_loss = 0.0
+    running_loss_r = 0.0
+    running_loss_e = 0.0
+    running_loss_b = 0.0
+    
     # for i, data in enumerate(trainloader, 0):
-    for i, (train_index, train_in, train_in_len, train_out) in enumerate(trainloader):
+    for i, (train_index, train_in,train_in_bg,train_in_bl, train_in_len, train_out) in enumerate(trainloader):
         
 
         # inputs, labels = data
         inputs = train_in.to(device)
+        inputs_bg = train_in_bg.to(device)
+        inputs_bl = train_in_bl.to(device)
+
         labels = train_out.to(device)
+
 
         optimizer.zero_grad()
 
-        loss,_, _, _, _,_= mae(inputs)
+        loss_rec,loss_enh,loss_blur,_, _, _, _,_= diae(inputs,inputs_bg,inputs_bl)
+        
+        loss_rec = loss_rec
+        loss_enh = loss_enh
+        loss_blur = loss_blur
+
+        loss = loss_rec + loss_enh + loss_blur
+        
+        running_loss_r += loss_rec.item()
+        running_loss_e += loss_enh.item()
+        running_loss_b += loss_blur.item()
 
         loss.backward()
+        
+        if i == 50000:
+            print('start scheduler')
+            schd = True
+        
         optimizer.step()
+        if schd:
+            scheduler.step()
 
         
 
         running_loss += loss.item()
         
-        show_every = int(len(trainloader) / 7)
+        if i % 5000 ==0:
+            if not os.path.exists(weightDir+ 'weights/'):
+                os.makedirs(weightDir+ 'weights/')
+            torch.save(v.state_dict(), weightDir+ 'weights/checkpoint-encoder-'+EXPERIMENT+'_pretrain.pt')
+            torch.save(diae.state_dict(), weightDir+ 'weights/checkpoint-diae-'+EXPERIMENT+'_pretrain.pt')
+
+
+        show_every = int(len(trainloader) / 10)
 
         if i % show_every == show_every-1:    # print every 20 mini-batches
-            if VIS_RESULTS and epoch%5 ==0:
+            if vis_results and epoch%1 ==0:
                 visualize(str(epoch),str(i))
+                diae.train()
             
-            print('[Epoch: %d, Iter: %5d] Train loss: %.3f' % (epoch + 1, i + 1, running_loss / show_every))
+            print('[Epoch: %d, Iter: %5d] Train: Reconst. loss: %.3f, Enh. loss: %.3f, Deblur. loss: %.3f, Tot. Loss: %.3f' % (epoch, i + 1, running_loss_r / show_every, running_loss_e / show_every,running_loss_b / show_every,running_loss / show_every))
             running_loss = 0.0
+            running_loss_r = 0.0
+            running_loss_e = 0.0
+            running_loss_b = 0.0
         
     best_valid_loss,valid_loss = valid_model(best_valid_loss)
-    mae.train()
+    diae.train()
     print('Valid loss: ',valid_loss)
     print('Best valid loss: ',best_valid_loss)
-
-torch.save(v.state_dict(), './weights/best-encoder-'+EXPERIMENT+'_100.pt')

@@ -12,21 +12,22 @@ from torch.nn.modules.dropout import Dropout
 from torch.nn.modules.linear import Linear
 from torch.nn.modules.normalization import LayerNorm
 from torch import nn 
+from models.stn import STN
 from einops import rearrange
 import Config as C
 
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 PAD_IDX = 2
-ENC_DIM = C.EMB_SIZE
+ENC_DIM = 768
 
 class Transformer(Module):
-    r"""A transformer model. User is able to modify the attributes as needed. The architecture
-    is based on the paper "Attention Is All You Need". Ashish Vaswani, Noam Shazeer,
-    Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Lukasz Kaiser, and
-    Illia Polosukhin. 2017. Attention is all you need. In Advances in Neural Information
-    Processing Systems, pages 6000-6010. Users can build the BERT(https://arxiv.org/abs/1810.04805)
-    model with corresponding parameters.
+    r"""A transformer model for OCR, this implementation is based on the papers: 
+        - Attention is all you need (Transformers) https://arxiv.org/abs/1706.03762
+        - and the ViT  paper: https://arxiv.org/abs/2010.11929
+
+    Part of this code is taken from the pytorch tutorial https://pytorch.org/tutorials/beginner/translation_transformer.html
+
 
     Args:
         d_model: the number of expected features in the encoder/decoder inputs (default=512).
@@ -44,6 +45,7 @@ class Transformer(Module):
             as (batch, seq, feature). Default: ``False`` (seq, batch, feature).
         norm_first: if ``True``, encoder and decoder layers will perform LayerNorms before
             other attention and feedforward operations, otherwise after. Default: ``False`` (after).
+        use_stn: specify wether to use the spatial transformer part (stn) or not.
 
     Examples::
         >>> transformer_model = nn.Transformer(nhead=16, num_encoder_layers=12)
@@ -60,7 +62,7 @@ class Transformer(Module):
                  activation: Union[str, Callable[[Tensor], Tensor]] = F.relu,
                  custom_encoder: Optional[Any] = None, custom_decoder: Optional[Any] = None,
                  layer_norm_eps: float = 1e-5, batch_first: bool = False, norm_first: bool = False,
-                 device=None, dtype=None) -> None:
+                 device=None, dtype=None, use_stn=False) -> None:
         factory_kwargs = {'device': device, 'dtype': dtype}
         super(Transformer, self).__init__()
 
@@ -82,7 +84,9 @@ class Transformer(Module):
                                                     **factory_kwargs)
             decoder_norm = LayerNorm(d_model, eps=layer_norm_eps, **factory_kwargs)
             self.decoder = TransformerDecoder(decoder_layer, num_decoder_layers, decoder_norm)
-
+        self.use_stn = use_stn
+        if self.use_stn:
+            self.stn = STN().to(DEVICE)
         self._reset_parameters()
         self.enc_to_dec = nn.Linear(ENC_DIM, d_model) if ENC_DIM != d_model else nn.Identity()
         self.d_model = d_model
@@ -138,19 +142,13 @@ class Transformer(Module):
             >>> output = transformer_model(src, tgt, src_mask=src_mask, tgt_mask=tgt_mask)
         """
 
-        ############## Assert this   ?
-
-        # if not self.batch_first and src.size(1) != tgt.size(1):
-        #     raise RuntimeError("the batch number of src and tgt must be equal")
-        # elif self.batch_first and src.size(0) != tgt.size(0):
-        #     raise RuntimeError("the batch number of src and tgt must be equal")
-
-        # if src.size(2) != self.d_model or tgt.size(2) != self.d_model:
-        #     raise RuntimeError("the feature number of src and tgt must be equal to d_model")
-
         
-
-        #### My modifications goes here : 
+        
+        #### Applying the STN
+        if self.use_stn:
+            src = self.stn(src)
+        
+        ### Transformer encoder-decoder 
         patches = self.to_patch(src)
         batch, num_patches, *_ = patches.shape
         tokens = self.patch_to_emb(patches)
@@ -164,8 +162,6 @@ class Transformer(Module):
         
         tgt_key_padding_mask = tgt_padding_mask
         memory_key_padding_mask = src_padding_mask
-
-        ### Ends here
 
         output = self.decoder(tgt, memory, tgt_mask=tgt_mask, memory_mask=memory_mask,
                               tgt_key_padding_mask=tgt_key_padding_mask,

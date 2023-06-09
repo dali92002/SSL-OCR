@@ -1,36 +1,38 @@
-baseDir_word = '/home/mohamed/vit/SSL-OCR/data/icdar13/'
-baseDir_line = '/home/mohamed/vit/SSL-OCR/data/icdar13/'
+import argparse
 
 
-#OUTPUT_MAX_LEN = 95  ## iam lines 
-OUTPUT_MAX_LEN = 38  ## iam words
+class Configs():
+    def __init__(self):
+        self.parser = argparse.ArgumentParser()
+        
+        # Data Creation
+        self.parser.add_argument('--train_words', type=int, help='The number of training words to be generated')
+        self.parser.add_argument('--valid_words', type=int, help='The number of validation words to be generated')
+        self.parser.add_argument('--test_words', type=int, help='The number of testing words to be generated')
+        
+        # Train
+        self.parser.add_argument('--data_path', type=str, help='specify your data path, better ending with the "/" ')
+        self.parser.add_argument('--img_height', type=int, default=64, help= "the size of the input images (height)")
+        self.parser.add_argument('--img_width', type=int, default=256, help= "the size of the input images (width)")
+        self.parser.add_argument('--vit_patch_size', type=int, default=16 , help=" better be a multiple of 2 like 8, 16 etc ..")
+        self.parser.add_argument('--max_text_len', type=int, default=20, help='the maximum word lenght, in our case 10 + 2, the added 2 are start token, end token')
+        self.parser.add_argument('--train_type', type=str , choices=['normal','stn','htr_Augm'], help="specify the desired transformation to be applied during training")
+        self.parser.add_argument('--batch_size', type=int, default=8)
+        self.parser.add_argument('--weights_path', type=str, default='./' , help='specify the path to save your weights "/" ')
 
-#baseDir_word = '/data2fast/users/msouibgui/maedata/syntdata/'
-#baseDir_line = '/data2fast/users/msouibgui/maedata/syntdata/'
-#OUTPUT_MAX_LEN  = 180 ##synthetic
+        # Pre-train
+        self.parser.add_argument('--vis_results', type=bool, default=True, help='specify if you want to visualise the recovering results or not')
 
-TRAINTYPE = 'IAM-scratch'
-SETTING = 'base'
-DATATYPE = 'word'
-continue_train = False
-batch_size = 6
+        # Fine-tune
+        self.parser.add_argument('--pretrained_encoder_path', type=str, default='./' , help='specify the path of your pretrained encoder to be loaded "/" ')
+        
+        # Test 
+        self.parser.add_argument('--test_model', type=str, help='specify the path of the model to be loaded for testing')
+
+    def parse(self):
+        return self.parser.parse_args()
 
 
-patch_size = 8
-image_size =  (128,512)
-MASKINGRATIO = 0.75
-VIS_RESULTS = True
 
-if SETTING == 'base':
-    NUM_ENCODER_LAYERS = 6
-    NUM_DECODER_LAYERS = 6
-    EMB_SIZE = 768
-    NHEAD = 8
-    FFN_HID_DIM = 768
 
-if SETTING == 'small':
-    NUM_ENCODER_LAYERS = 3
-    NUM_DECODER_LAYERS = 3
-    EMB_SIZE = 512
-    NHEAD = 4
-    FFN_HID_DIM = 512
+

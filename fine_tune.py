@@ -26,6 +26,7 @@ train_type = cfg.train_type
 batch_size = cfg.batch_size
 patch_size = cfg.vit_patch_size
 image_size =  (cfg.img_height,cfg.img_width)
+pretrained_encoder_path = cfg.pretrained_encoder_path
 
 # here the name of the current eperiment
 EXPERIMENT = train_type + '_' + str(image_size[0])+'_'+str(image_size[1])+'_'+str(patch_size)
@@ -77,11 +78,7 @@ for p in transformer.parameters():
     if p.dim() > 1:
         nn.init.xavier_uniform_(p)
 
-# STN initialization following the pytorch tutorial. 
-if train_type == 'stn':
-    transformer.transformer.stn.fc_loc[2].weight.data.zero_()
-    transformer.transformer.stn.fc_loc[2].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
-
+transformer.transformer.encoder.load_state_dict(torch.load(pretrained_encoder_path))
 
 transformer = transformer.to(DEVICE)
 

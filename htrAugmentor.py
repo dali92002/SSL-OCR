@@ -6,7 +6,6 @@ def augmentor(img):
     TH,TW=img.shape
 
     param_gamma_low=.3
-    #param_gamma_low=.5 # Nacho fixed
     param_gamma_high=2
 
     param_mean_gaussian_noise=0
@@ -19,7 +18,7 @@ def augmentor(img):
     param_kanungo_mu=0
     param_kanungo_k=2
 
-    param_min_shear=-.5 # here a little bit more shear to the left than to the right
+    param_min_shear=-.5 # more shear to the left than to the right
     param_max_shear=.25
 
     param_rotation=3 # plus minus angles for rotation
@@ -36,13 +35,9 @@ def augmentor(img):
     # randomly erode, dilate or nothing
     # we could move it also after binarization
     kernel=np.ones((3,3),np.uint8)
-    #a=random.choice([1,2,3])
-    a=random.choice([2,3]) # Nacho fixed
-    #a = 3 # Nacho fixed
-    if a==1:
-        gaussiannoise=cv2.dilate(gaussiannoise,kernel,iterations=1)
-    elif a==2:
-        gaussiannoise=cv2.erode(gaussiannoise,kernel,iterations=1)
+    a=random.choice([0,1]) 
+    # if a==1:
+    #     gaussiannoise=cv2.erode(gaussiannoise,kernel,iterations=1)
 
     # add random gamma correction
     gamma=np.random.uniform(param_gamma_low,param_gamma_high)
@@ -53,13 +48,13 @@ def augmentor(img):
 
     # binarize image with Otsu
     otsu_th,binarized = cv2.threshold(gammacorrected,0,1,cv2.THRESH_BINARY_INV+cv2.THRESH_OTSU)
-
+    
     # Kanungo noise
-    dist = cv2.distanceTransform(1-binarized, cv2.DIST_L1, 3)  # try cv2.DIST_L1 for newer versions of OpenCV
-    dist2 = cv2.distanceTransform(binarized, cv2.DIST_L1, 3) # try cv2.DIST_L1 for newer versions of OpenCV
-
-    dist = dist.astype('float64') # Tro add
-    dist2 = dist2.astype('float64') # Tro add
+    dist = cv2.distanceTransform(1-binarized, cv2.DIST_L1, 3)  
+    dist2 = cv2.distanceTransform(binarized, cv2.DIST_L1, 3) 
+    
+    dist = dist.astype('float64') 
+    dist2 = dist2.astype('float64') 
 
     P=(param_kanungo_alpha0*np.exp(-param_kanungo_alpha * dist**2)) + param_kanungo_mu
     P2=(param_kanungo_beta0*np.exp(-param_kanungo_beta * dist2**2)) + param_kanungo_mu
@@ -73,11 +68,11 @@ def augmentor(img):
     canvas=np.zeros((3*TH,3*TW),dtype=np.uint8)
     canvas[TH:2*TH,TW:2*TW]=pseudo_binarized
     points=[]
-    count = 0 # Tro add
+    count = 0 
     while(len(points)<1):
-        count += 1 # Tro add
-        if count > 50: # Tro add
-            break # Tro add
+        count += 1 
+        if count > 50: 
+            break 
 
         # random shear
         shear_angle=np.random.uniform(param_min_shear,param_max_shear)
@@ -96,7 +91,7 @@ def augmentor(img):
         points = np.argwhere(scaled!=0)
         points = np.fliplr(points)
 
-    if len(points) < 1: # Tro add
+    if len(points) < 1: 
         return pseudo_binarized
 
     r = cv2.boundingRect(np.array([points]))
@@ -112,13 +107,4 @@ def augmentor(img):
 
     return final_image
 
-if __name__ == '__main__':
-    imgName = 'p03-080-05-02.png'
-    img = cv2.imread('/home/lkang/datasets/iam_final_words/words/'+imgName, 0)
-    out_imgs = [cv2.resize(augmentor(img), (img.shape[1], img.shape[0]), interpolation=cv2.INTER_AREA) for i in range(20)]
-    final_img = np.vstack((img, *out_imgs))
-    rate = 800 / final_img.shape[0]
-    final_img2 = cv2.resize(final_img, (int(final_img.shape[1]*rate), 800), interpolation=cv2.INTER_AREA)
-    cv2.imshow('Marcal_V3', final_img2)
-    cv2.waitKey(0)
 
