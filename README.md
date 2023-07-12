@@ -1,4 +1,4 @@
-# OCR-TR
+# TEXT-DIAE
 ## Description
 A pytorch implementation of the paper [Text-DIAE: A Self-Supervised Degradation Invariant Autoencoders for Text Recognition and Document Enhancement](https://arxiv.org/abs/2203.04814).
 <img src="./imgs/text-diae.png"  alt="1">
